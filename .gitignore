@@ -1,0 +1,87 @@
+## Build output
+bin/
+obj/
+
+# Include if using dotnet CLI or custom project structures
+**/bin/
+**/obj/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## VS Code
+.vscode/
+.vscode-test/
+
+## Rider
+.idea/
+*.sln.iml
+
+## Visual Studio
+.vs/
+# Uncomment if you have service fabric local clusters
+# sfctl/
+
+## ASP.NET
+wwwroot/lib/
+
+## DotCover
+*.dotCover
+
+## Logs
+*.log
+logs/
+
+## NCrunch
+*.ncrunch*
+.*crunch*.local.xml
+
+## MSTest
+TestResults/
+*.vsmdi
+*.testsettings
+*.vsp
+*.vspx
+*.vsix
+*.cache
+*.dbmdl
+
+## NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+## xUnit
+*.xml (only if generated test result files are not needed)
+
+## Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## Coverlet
+coverage*.json
+coverage*.xml
+coverage*.info
+coverage*.lcov
+
+## StyleCop
+StyleCopReport.xml
+
+## Global tools
+.tools/
+
+## Secrets and sensitive config
+secrets.json
+appsettings.Development.json
+
+## Packaging output
+*.nupkg
+*.snupkg
+
+## Other
+*.DS_Store
+Thumbs.db
