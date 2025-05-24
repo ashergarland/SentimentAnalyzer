@@ -329,9 +329,149 @@ This class should:
 5. Return a `List<SentimentExample>` or `IReadOnlyCollection<>`
 
 ---
-✅ You're now fully set up and ready for **Stage 1 – Data Loading + Preprocessing**. Let me know when to start and I’ll provide:
 
-* Interface definitions
-* Sample CSV format
-* xUnit test cases
-* ML.NET API explanations
+
+## 🧠 STAGE 2 — Model Training + Evaluation
+
+### 🎯 Goal
+
+Build a trainable ML.NET pipeline to:
+
+1. **Load and process training data**
+2. **Train a binary classifier**
+3. **Evaluate model performance on a test set**
+4. Return an object with evaluation metrics
+
+---
+
+## ✅ Interfaces to Implement
+
+### 📄 `ISentimentModelTrainer`
+
+`SentimentAnalyzer.App/Contracts/ISentimentModelTrainer.cs`:
+
+```csharp
+using System.Threading.Tasks;
+using SentimentAnalyzer.App.Preprocessing;
+
+namespace SentimentAnalyzer.App.Contracts
+{
+    public interface ISentimentModelTrainer
+    {
+        /// <summary>
+        /// Trains a binary classification model on the provided training data and evaluates it on test data.
+        /// </summary>
+        /// <param name="trainPath">Path to the training dataset CSV</param>
+        /// <param name="testPath">Path to the test dataset CSV</param>
+        /// <returns>Model training metrics including Accuracy, AUC, and F1 Score</returns>
+        Task<ModelTrainingResult> TrainAndEvaluateAsync(string trainPath, string testPath);
+    }
+}
+```
+
+---
+
+### 📄 `ModelTrainingResult`
+
+`SentimentAnalyzer.App/Preprocessing/ModelTrainingResult.cs`:
+
+```csharp
+namespace SentimentAnalyzer.App.Preprocessing
+{
+    public class ModelTrainingResult
+    {
+        public double Accuracy { get; set; }
+        public double Auc { get; set; }
+        public double F1Score { get; set; }
+    }
+}
+```
+
+---
+
+## 🔧 ML.NET Concepts You'll Use
+
+| Concept                    | Purpose                                          |
+| -------------------------- | ------------------------------------------------ |
+| `MLContext`                | Root entry point for all ML.NET operations       |
+| `IDataView`                | Efficient, schema-aware data structure           |
+| `LoadFromTextFile<T>()`    | Load CSV files into IDataView                    |
+| `FeaturizeText()`          | Automatically tokenizes and vectorizes text      |
+| `MapValueToKey()`          | Converts labels to key-type categories           |
+| `SdcaLogisticRegression()` | Efficient binary classifier                      |
+| `Evaluate()`               | Computes accuracy, AUC, and F1 score on test set |
+
+---
+
+## 📁 Data Files (in `data/stage2/`)
+
+| File                       | Description         |
+| -------------------------- | ------------------- |
+| `train_sentiment_data.csv` | 70% of labeled data |
+| `test_sentiment_data.csv`  | 30% of labeled data |
+
+Each row looks like:
+
+```csv
+Sentiment,Text
+Positive,"I loved this product!"
+Negative,"Worst experience ever."
+```
+
+---
+
+## 🧪 Unit Test Scaffold
+
+Create in `SentimentAnalyzer.Tests/TrainingTests/ModelTrainerTests.cs`:
+
+```csharp
+using System.Threading.Tasks;
+using SentimentAnalyzer.App.Contracts;
+using SentimentAnalyzer.App.Preprocessing;
+using Xunit;
+
+namespace SentimentAnalyzer.Tests.TrainingTests
+{
+    public class ModelTrainerTests
+    {
+        private readonly ISentimentModelTrainer _trainer;
+
+        public ModelTrainerTests()
+        {
+            _trainer = new SentimentModelTrainer(); // You'll implement this
+        }
+
+        private static string GetPath(string filename)
+        {
+            return Path.Combine(AppContext.BaseDirectory, "data", "stage2", filename);
+        }
+
+        [Fact]
+        public async Task TrainAndEvaluate_ShouldReturnReasonableMetrics()
+        {
+            var result = await _trainer.TrainAndEvaluateAsync(
+                GetPath("train_sentiment_data.csv"),
+                GetPath("test_sentiment_data.csv")
+            );
+
+            Assert.InRange(result.Accuracy, 0.5, 1.0);
+            Assert.InRange(result.Auc, 0.5, 1.0);
+            Assert.InRange(result.F1Score, 0.5, 1.0);
+        }
+    }
+}
+```
+
+---
+
+## 🧠 Summary
+
+| Task                 | You Implement                               |
+| -------------------- | ------------------------------------------- |
+| Load CSV → IDataView | `MLContext.Data.LoadFromTextFile<T>()`      |
+| Build pipeline       | `MapValueToKey`, `FeaturizeText`, `Trainer` |
+| Train model          | `Fit()`                                     |
+| Evaluate model       | `Evaluate()` on test data                   |
+| Return metrics       | Accuracy, AUC, F1                           |
+
+---
