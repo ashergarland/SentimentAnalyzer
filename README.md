@@ -192,8 +192,8 @@ Build a reusable, test-driven component to:
 
 ### 📄 Input Dataset Location
 
-| File | Purpose |
-| ---- | ------- |
+| File                                     | Purpose                                 |
+| ---------------------------------------- | --------------------------------------- |
 | `data/stage1/labeled_sentiment_data.csv` | Full labeled dataset used in this stage |
 
 #### Sample CSV Format:
@@ -473,5 +473,273 @@ namespace SentimentAnalyzer.Tests.TrainingTests
 | Train model          | `Fit()`                                     |
 | Evaluate model       | `Evaluate()` on test data                   |
 | Return metrics       | Accuracy, AUC, F1                           |
+
+---
+
+## 🧠 Overview
+
+The implementation of `SentimentModelTrainer` will use:
+
+* ✅ `MLContext` – the main entry point for all ML.NET operations
+* ✅ `IDataView` – the abstract data format ML.NET uses for both training and testing
+* ✅ Pipeline transformations – `FeaturizeText`, `MapValueToKey`
+* ✅ Binary classifier – `SdcaLogisticRegression()`
+* ✅ Evaluator – `Evaluate()` to produce metrics like accuracy, AUC, F1
+
+---
+
+## 🔧 Library Features & Tips
+
+### 1. **MLContext**
+
+```csharp
+var mlContext = new MLContext(seed: 42);
+```
+
+* Use a single `MLContext` instance
+* Set a `seed` for reproducible training behavior
+
+---
+
+### 2. **Convert to IDataView**
+
+```csharp
+IDataView trainData = mlContext.Data.LoadFromEnumerable(trainExamples);
+IDataView testData = mlContext.Data.LoadFromEnumerable(testExamples);
+```
+
+📌 This allows you to work with ML.NET’s high-performance pipeline APIs without coupling your interface to them.
+
+---
+
+### 3. **Build the Pipeline**
+
+```csharp
+var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label", nameof(SentimentExample.Sentiment))
+    .Append(mlContext.Transforms.Text.FeaturizeText("Features", nameof(SentimentExample.Text)))
+    .Append(mlContext.BinaryClassification.Trainers.SdcaLogisticRegression(labelColumnName: "Label", featureColumnName: "Features"));
+```
+
+* `MapValueToKey` handles label encoding
+* `FeaturizeText` applies text vectorization
+* `SdcaLogisticRegression` is ideal for sparse textual features
+
+---
+
+### 4. **Train the Model**
+
+```csharp
+var model = pipeline.Fit(trainData);
+```
+
+* Efficiently builds the model using your preprocessed dataset
+
+---
+
+### 5. **Evaluate on Test Data**
+
+```csharp
+var predictions = model.Transform(testData);
+var metrics = mlContext.BinaryClassification.Evaluate(predictions, labelColumnName: "Label");
+```
+
+* Evaluates model performance using standard metrics
+
+---
+
+### 6. **Return Results**
+
+```csharp
+return new ModelTrainingResult
+{
+    Accuracy = metrics.Accuracy,
+    Auc = metrics.AreaUnderRocCurve,
+    F1Score = metrics.F1Score
+};
+```
+
+* Return the result via your DTO (`ModelTrainingResult`)
+
+---
+
+## 🧪 Validation Helpers (Optional)
+
+* Validate input lists:
+
+  ```csharp
+  if (trainExamples is null || testExamples is null)
+      throw new ArgumentNullException(...);
+
+  if (!trainExamples.Any() || !testExamples.Any())
+      throw new InvalidOperationException("Training and test sets must contain data.");
+  ```
+
+* Optionally inspect samples using:
+
+  ```csharp
+  mlContext.Data.CreateEnumerable<SentimentExample>(trainData, reuseRowObject: false)
+  ```
+
+---
+
+## 💡 Useful ML.NET Tools
+
+| Tool/API                  | Use Case                                   |
+| ------------------------- | ------------------------------------------ |
+| `LoadFromEnumerable<T>()` | Convert List to IDataView                  |
+| `Preview()`               | Quick schema/data inspection for IDataView |
+| `FeaturizeText()`         | Automatically vectorizes natural language  |
+| `Evaluate()`              | Produces accuracy, AUC, and F1             |
+| `Model.Save()` (Stage 4)  | Persist trained models (used later)        |
+
+---
+
+## 🔍 STAGE 3 — Inference + Prediction
+
+### 🎯 Goal
+
+Build a reusable component to:
+
+1. **Load a trained model** (from memory or later, from disk)
+2. **Predict sentiment** from a new `string` input
+3. **Return the predicted sentiment and confidence score**
+
+---
+
+### 📅 Interface to Implement: `ISentimentPredictor`
+
+File: `SentimentAnalyzer.App/Contracts/ISentimentPredictor.cs`
+
+```csharp
+namespace SentimentAnalyzer.App.Contracts
+{
+    public interface ISentimentPredictor
+    {
+        /// <summary>
+        /// Predicts sentiment for a given input string.
+        /// </summary>
+        /// <param name="input">Normalized text input</param>
+        /// <returns>A <see cref="SentimentPredictionResult"/> with label and score</returns>
+        SentimentPredictionResult Predict(string input);
+    }
+}
+```
+
+---
+
+### 📂 Prediction Output Model
+
+File: `SentimentAnalyzer.App/Models/SentimentPredictionResult.cs`
+
+```csharp
+namespace SentimentAnalyzer.App.Models
+{
+    public class SentimentPredictionResult
+    {
+        public string Sentiment { get; set; } = string.Empty;
+        public float Confidence { get; set; }
+    }
+}
+```
+
+---
+
+### 🎓 ML.NET Concepts
+
+| Concept                      | Purpose                                        |
+| ---------------------------- | ---------------------------------------------- |
+| `PredictionEngine`           | Lightweight wrapper to make single predictions |
+| `TransformText()`            | Featurize single input for inference           |
+| `Score` and `PredictedLabel` | Confidence + label output                      |
+
+---
+
+## 🔄 STAGE 4 — Model Persistence
+
+### 🎯 Goal
+
+Support saving a trained model to disk and reloading it for future use.
+
+---
+
+### 📅 Interface to Implement: `ISentimentModelStore`
+
+File: `SentimentAnalyzer.App/Contracts/ISentimentModelStore.cs`
+
+```csharp
+namespace SentimentAnalyzer.App.Contracts
+{
+    public interface ISentimentModelStore
+    {
+        void Save(ITransformer model, DataViewSchema inputSchema, string path);
+        ITransformer Load(string path, out DataViewSchema schema);
+    }
+}
+```
+
+---
+
+### 📂 File Format
+
+Use `.zip` extension conventionally.
+
+```csharp
+mlContext.Model.Save(model, schema, "model.zip");
+```
+
+To load:
+
+```csharp
+ITransformer model = mlContext.Model.Load("model.zip", out var schema);
+```
+
+---
+
+## 💻 STAGE 5 — CLI and Web API Interfaces
+
+### 🎯 Goal
+
+Build interactive interfaces for users to predict sentiment in two modes:
+
+* ⌨️ Command-Line Interface (CLI)
+* 🌐 ASP.NET Core Web API
+
+---
+
+### ⌨️ CLI Interface
+
+* Read a line of input
+* Normalize text (reuse Stage 1's `TextNormalizer`)
+* Use `ISentimentPredictor.Predict()`
+* Print sentiment and confidence
+
+#### Example CLI loop:
+
+```csharp
+while (true)
+{
+    Console.Write("Enter text: ");
+    var input = Console.ReadLine();
+    if (string.IsNullOrWhiteSpace(input)) break;
+
+    var result = predictor.Predict(input);
+    Console.WriteLine($"Prediction: {result.Sentiment} (Confidence: {result.Confidence:P2})");
+}
+```
+
+---
+
+### 🌐 ASP.NET Core API Interface
+
+* Add a controller: `SentimentController`
+* POST `/api/predict` with a JSON body
+* Return predicted sentiment and score
+
+```csharp
+public class SentimentRequest { public string Text { get; set; } = string.Empty; }
+public class SentimentResponse { public string Sentiment { get; set; } = string.Empty; public float Confidence { get; set; } }
+```
+
+This can be integrated with dependency injection using `ISentimentPredictor`.
 
 ---
