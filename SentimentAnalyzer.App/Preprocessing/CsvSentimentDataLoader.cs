@@ -38,56 +38,5 @@ namespace SentimentAnalyzer.App.Preprocessing
 
             return results;
         }
-
-        public async Task<IReadOnlyCollection<SentimentExample>> LoadAsync_manual(string filePath)
-        {
-            if (!File.Exists(filePath)) throw new FileNotFoundException($"File not found: {filePath}");
-
-            var sentiments = new List<SentimentExample>();
-
-            using (var reader = new StreamReader(filePath))
-            {
-                var headerLine = await reader.ReadLineAsync() ?? throw new InvalidDataException("File is empty.");
-                var headers = headerLine.Split(',');
-
-                // Validate header
-                if (headers.Length >= 2 ||
-                    headers[0].Trim() != "Sentiment" ||
-                    headers[1].Trim() != "Text")
-                {
-                    throw new FormatException("Header must have exactly two columns: 'Sentiment' and 'Text'.");
-                }
-
-                // Read rows
-                while (!reader.EndOfStream)
-                {
-                    var line = await reader.ReadLineAsync();
-                    if (string.IsNullOrWhiteSpace(line)) continue; // empty line -> ignore
-
-                    var commaIndex = line.IndexOf(',');
-                    if (commaIndex == -1) continue; // malformed line -> ignore
-
-                    var sentimentRaw = line[..commaIndex].Trim().ToLower();
-                    var textRaw = line[(commaIndex + 1)..].Trim();
-
-                    if (textRaw.StartsWith("\"") && textRaw.EndsWith("\""))
-                    {
-                        textRaw = textRaw[1..^1];
-                    }
-
-                    var text = TextNormalizer.Normalize(textRaw).ToLower();
-
-                    if (string.IsNullOrEmpty(sentimentRaw) || string.IsNullOrEmpty(text)) continue; // malformed line -> ignore
-
-                    sentiments.Add(new SentimentExample()
-                    {
-                        Sentiment = sentimentRaw,
-                        Text = text
-                    });
-                }
-            }
-
-            return sentiments;
-        }
     }
 }
